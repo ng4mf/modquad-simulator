@@ -1,11 +1,15 @@
 # ModQuad and Crazyflie Simulator
 
+### Versions
+This fork of https://github.com/swarmslab/modquad-simulator works with ROS
+Noetic on Lubuntu 20. Not the master branch, but the modulardynamics
+branch is where it works at the moment. Tested modquad_sim.py.
+Seem to be some (version?)-related issues in reconfigure_sim.py due to updated libraries and versions.
+
 ### Requirements
 * Install crazyflie_ros: https://github.com/whoenig/crazyflie_ros
 * install python packages 
 ``` sudo pip install --upgrade numpy scipy transforms3d```
-
-
 
 ### Launching the simulator
 The simulator for five quadrotors is launched by
