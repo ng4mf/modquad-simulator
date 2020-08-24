@@ -7,7 +7,7 @@ import numpy as np
 accumulated_error = np.array([0., 0., 0.])
 
 
-def attitude_controller((F_newtons, roll_des, pitch_des, yaw_des), x):
+def attitude_controller(desired, x):
     """
     Attitude controller for crazyflie, receiving pwm as input.
     the output are forces and moments.
@@ -16,6 +16,11 @@ def attitude_controller((F_newtons, roll_des, pitch_des, yaw_des), x):
     :return:
     """
     global accumulated_error
+
+    F_newtons = desired[0]
+    roll_des  = desired[1]
+    pitch_des = desired[2]
+    yaw_des   = desired[3]
 
     ### Moments
     # Quaternion to angles

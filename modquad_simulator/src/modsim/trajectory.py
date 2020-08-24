@@ -192,7 +192,7 @@ def min_snap_trajectory(t, t_max=30, traj_vars=None, waypts=[]):
     ind = [i for i in range(0, len(traj_vars.times) - 1)
            if t >= traj_vars.times[i] and t < traj_vars.times[i + 1]]
     if len(ind) != 1:
-        print 'ind = ', ind
+        print('ind = {}'.format(ind))
         raise ValueError("Malformed times vector for legs of journey")
     ind = ind[0]
     prev = traj_vars.waypts[ind, :]

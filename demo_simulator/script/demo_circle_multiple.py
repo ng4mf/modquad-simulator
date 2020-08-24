@@ -12,7 +12,7 @@ from std_srvs.srv import Empty
 def goal_to_pose(x, y, z, yaw):
     goal = PoseStamped()
     goal.header.seq = 0
-    goal.header.frame_id = '/world'
+    goal.header.frame_id = 'world'
 
     goal.pose.position.x = x
     goal.pose.position.y = y

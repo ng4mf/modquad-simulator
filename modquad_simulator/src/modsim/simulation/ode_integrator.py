@@ -20,7 +20,7 @@ def simulation_step(structure, state_vector, F, M, time_step):
     r.set_initial_value(state_vector, 0)
     r.integrate(time_step, step=True)
     if not r.successful():
-        print 'Error trying to integrate'
+        print('Error trying to integrate')
         return None
     state_vector = r.y
 

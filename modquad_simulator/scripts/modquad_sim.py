@@ -60,7 +60,7 @@ def publish_structure_odometry(structure, x, odom_publishers, tf_broadcaster):
     publish_transform_stamped(main_id, x, tf_broadcaster)
 
     # show the other robots
-    for robot_id, structure_x, structure_y in zip(ids, xx, yy)[1:]:
+    for robot_id, structure_x, structure_y in list(zip(ids, xx, yy))[1:]:
         publish_odom_relative(structure_x, structure_y, robot_id, main_id, odom_publishers[robot_id])
         publish_transform_stamped_relative(robot_id, main_id, structure_x, structure_y, tf_broadcaster)
 
@@ -139,7 +139,8 @@ def simulate():
             [thrust_newtons, roll, pitch, yaw] = position_controller(state_vector, circular_trajectory(t % 10, 10))
 
         # Control output based on crazyflie input
-        F_single, M_single = attitude_controller((thrust_newtons, roll, pitch, yaw), state_vector)
+        desired = (thrust_newtons, roll, pitch, yaw)
+        F_single, M_single = attitude_controller(desired, state_vector)
 
         # Control of Moments and thrust
         F_structure, M_structure, rotor_forces = modquad_torque_control(F_single, M_single, structure, motor_sat=False)

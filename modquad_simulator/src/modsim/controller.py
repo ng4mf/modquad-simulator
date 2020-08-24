@@ -1,4 +1,4 @@
-import params
+from modsim import params
 from math import sin, cos
 import numpy as np
 from math import sqrt
