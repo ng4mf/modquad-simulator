@@ -33,13 +33,13 @@ def handle_switch_to_kalman(msg):
 # Crazyflie dynamics parameters
 def handle_zero_att_i_gains(msg):
     # msg is Empty, just used as a trigger
-    rospy.set_param('pid_attitude/roll_ki', 0)
-    rospy.set_param('pid_attitude/pitch_ki', 0)
-    rospy.set_param('pid_attitude/yaw_ki', 0)
+    rospy.set_param('pid_attitude/roll_ki',  0.0000)
+    rospy.set_param('pid_attitude/pitch_ki', 0.0000)
+    rospy.set_param('pid_attitude/yaw_ki',   0.0000)
 
-    rospy.set_param('pid_rate/roll_ki', 0)
-    rospy.set_param('pid_rate/pitch_ki', 0)
-    rospy.set_param('pid_rate/yaw_ki', 0)
+    rospy.set_param('pid_rate/roll_ki',  0.0000)
+    rospy.set_param('pid_rate/pitch_ki', 0.0000)
+    rospy.set_param('pid_rate/yaw_ki',   0.0000)
 
     #rospy.set_param('ctrlINDI/yaw_kp', 0)
 

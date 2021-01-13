@@ -251,7 +251,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     tstart = rospy.get_time()
     t = 0
     prev_t = t
-    while not rospy.is_shutdown() and t < 90.0:
+    while not rospy.is_shutdown() and t < 60.0:
         # Update time
         prev_t = t
         t = rospy.get_time() - tstart
@@ -328,11 +328,11 @@ def make_plots():
     ax5 = ax4.twinx()
     ax4.plot(logs['t'], logs['spitch'], 'c', label='des pitch')
     ax4.legend(loc='lower right')
-    ax4.set_ylabel("Pitch (deg)")
+    ax4.set_ylabel("Cmd Pitch (deg), cyan")
     ax5.plot(logs['t'], logs['pitch'], 'm')
-    ax5.set_ylabel("Pitch (deg)")
+    ax5.set_ylabel("Measured Pitch (deg), magenta")
     ax4.set_ylim(-20, 20)
-    ax5.set_ylim(-5, 5)
+    ax5.set_ylim(-20, 20)
 
     ax6 = plt.subplot(3,3,4)
     ax7 = ax6.twinx()
@@ -358,11 +358,12 @@ def make_plots():
 
     ax10 = plt.subplot(3,3,6)
     ax10.plot(logs['t'], logs['sroll'], 'c', label='des_roll')
-    ax10.set_ylabel("Roll (deg), cyan")
+    ax10.set_ylabel("Cmd Roll (deg), cyan")
     ax11 = ax10.twinx()
     ax11.plot(logs['t'], logs['roll'], 'm', label='meas_roll')
-    ax11.set_ylabel("Meas Roll (deg), magenta")
-    ax10.set_ylim(-5, 5)
+    ax11.set_ylabel("Measured Roll (deg), magenta")
+    ax10.legend(loc='lower right')
+    ax10.set_ylim(-20, 20)
     ax11.set_ylim(-20, 20)
 
     ax12 = plt.subplot(3,3,7)
@@ -374,7 +375,7 @@ def make_plots():
     ax13.set_ylabel("Z (m)")
     ax12.set_ylabel("Thrust (PWM)")
     ax12.set_ylim(5000, 61000)
-    ax13.set_ylim(-0.1, 1.0)
+    ax13.set_ylim(-0.1, 2.0)
     ax12.set_xlabel('Time (sec)')
 
     ax14 = plt.subplot(3,3,8)
@@ -550,8 +551,8 @@ if __name__ == '__main__':
     print("starting simulation")
 
     # The place, according to mocap, where robot will start
-    x = -0.239 # 6.68 # 4.9#  6.3
-    y =  5.219 # 0.64 #-0.9# -1.0
+    x = -0.92 # 6.68 # 4.9#  6.3
+    y =  5.85 # 0.64 #-0.9# -1.0
     z =   0.0 # 0.0  # 0.5
 
     num_struc = 1
@@ -559,7 +560,7 @@ if __name__ == '__main__':
                        num_struc, 
                        #waypt_gen.zigzag_xy(2.0, 1.0, 6, start_pt=[x-1,y-0.5,0.5]),
                        waypt_gen.helix(radius=0.5, 
-                                       rise=0.5, 
+                                       rise=0.75, 
                                        num_circ=4, 
                                        start_pt=[x, y, 0.0]),
                        #waypt_gen.waypt_set([[x-0.0  , y+0.00  , 0.0],
@@ -587,6 +588,6 @@ if __name__ == '__main__':
                        #                     [x    , y    , 0.2]
                        #                    ]
                        #                   ),
-                       speed=0.3, test_id="controls", 
+                       speed=0.25, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")

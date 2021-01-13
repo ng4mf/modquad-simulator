@@ -57,8 +57,9 @@ class Structure:
              np.sum(self.yy ** 2) + np.sum(self.xx ** 2)
          ])
 
-        self.pos_accumulated_error = np.array([0.0, 0.0, 0.0])
-        self.att_accumulated_error = np.array([0.0, 0.0, 0.0])
+        self.pos_accumulated_error      = np.array([0.0, 0.0, 0.0])
+        self.att_accumulated_error      = np.array([0.0, 0.0, 0.0])
+        self.att_rate_accumulated_error = np.array([0.0, 0.0, 0.0])
         self.traj_vars         = None # Populate this
         self.state_vector      = []   # Populate this
         self.prev_state_vector = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0]) # Populate this

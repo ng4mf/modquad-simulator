@@ -79,3 +79,21 @@ def init_params(speed, is_sim, fdd_group, fdd_interval, rmap_mode):
     rospy.set_param("fault_det_time_interval", fdd_interval)
     rospy.set_param('is_modquad_sim', is_sim)
     rospy.set_param("fdd_group_type", fdd_group)
+
+# Both Gain and Gainset used for PID parameters
+class Gain:
+    """
+    Single gain value for a controller
+    """
+    def __init__(self, k=0.0):
+        self.k = k
+
+class Gainset:
+    """
+    Set of gain values for a PID controller
+    """
+    def __init__(self, p=0.0, d=0.0, i=0.0, i_lim=99999):
+        self.p     = Gain(p)
+        self.d     = Gain(d)
+        self.i     = Gain(i)
+        self.i_lim = i_lim # Default ~= no limit

@@ -20,7 +20,7 @@ from modsim.trajectory import circular_trajectory, simple_waypt_trajectory, \
     min_snap_trajectory
 
 from modsim import params
-from modsim.attitude import attitude_controller
+from modsim.attitude import attitude_controller, cf2_attitude_controller
 # from modsim.plot.drawer_vispy import Drawer
 
 from modsim.datatype.structure import Structure
@@ -95,7 +95,10 @@ def recompute_velocities(new_state, old_state, dt):
 
 def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     rospy.init_node('modrotor_simulator', anonymous=True)
-    params.init_params(speed)
+    #params.init_params(speed)
+    params.init_params(speed, is_sim=True, 
+                        fdd_group="log4", fdd_interval=5.0, 
+                        rmap_mode=3.0)
 
     state_log = []
     forces_log = []
@@ -164,7 +167,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
 
         # Control output based on crazyflie input
-        F_single, M_single = attitude_controller( structure, 
+        F_single, M_single = cf2_attitude_controller( structure, 
                     (thrust_newtons, roll, pitch, yawrate), 
                     yaw_des)
 
@@ -353,7 +356,8 @@ def test_shape_with_waypts(mset, wayptset, speed=1):
 
 if __name__ == '__main__':
     random.seed(1)
-    structure = structure_gen.plus(3, 3)
+    rospy.set_param('min_ramp', 0.25)
+    structure = structure_gen.plus(1, 1)
     waypts = waypt_gen.helix(radius=0.5, rise=0.6, num_circ=2, start_pt=[0,0,0.5])
     results = test_shape_with_waypts( structure, waypts, speed=0.15 )
     print("---------------------------------------------------------------")

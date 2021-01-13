@@ -57,7 +57,7 @@ def position_controller(structure, desired_state, dt):
     yaw_ki =   0
 
     # Default bounds from crazyflie_ros are 30 deg and 200 deg/s
-    max_ang      =  2.5
+    max_ang      = 5.0
     max_yaw_rate = 30.0
 
     kp1_u, kd1_u, ki1_u =  xyp,  xyd,  xyi # 10.0, 71.0, 0.0 

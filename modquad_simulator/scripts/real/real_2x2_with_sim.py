@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import numpy as np
 import time
@@ -33,6 +33,8 @@ from modsim.util.fault_detection import fault_exists_real,      \
                                         get_faulty_quadrant_rotors_real,\
                                         update_ramp_rotors, update_ramp_factors, \
                                         form_groups, update_rotmat
+
+from modsim.simulation.coexecute import setup_sim_thread
 
 from dockmgr.datatype.PoseManager import PoseManager
 #from dockmgr.datatype.ImuManager import ImuManager
@@ -198,7 +200,7 @@ def update_state(pose_mgr, structure, freq): # freq computed as 1 / (t - prev_t)
 
 def check_to_inject_fault(t, fault_injected, structure):
     # Test fault injection
-    if t > 20.0 and not fault_injected:
+    if t > 10.0 and not fault_injected:
         fault_injected = True
         rid = 1
         mid = 3
@@ -279,7 +281,7 @@ def run(traj_vars, t_step=0.01, speed=1):
     # Update for the 2x2 structure
     update_att_ki_gains(start_id, num_robot)
     structure.update_firmware_params()
-    #switch_estimator_to_kalman_filter(start_id, num_robot)
+    switch_estimator_to_kalman_filter(start_id, num_robot)
 
     fault_injected = False
     fault_detected = False
@@ -289,8 +291,12 @@ def run(traj_vars, t_step=0.01, speed=1):
         rospy.loginfo(
             "setup complete for /modquad{:02d}".format(mid))
 
-    #import pdb; pdb.set_trace()
+    # Set up an event-based simulation thread
+    # Upon receiving new state and desired position, it will independently
+    # predict the next state and publish that to another topic
+    setup_sim_thread()
 
+    _takeoff(pose_mgr, structure, freq, publishers)
 
     """
     THIS WILL NOT AUTOMATICALLY CAUSE THE ROBOT TO DO ANYTHING!!
@@ -316,9 +322,8 @@ def run(traj_vars, t_step=0.01, speed=1):
         update_state(pose_mgr, structure, 1.0/dt)
 
         if not fault_detected:
-            pass
-            #fault_detected = fault_exists_real(logs)
-            #fault_detected = True
+            fault_detected = fault_exists_real(logs)
+            fault_detected = True
         elif not diagnose_mode:
             next_diag_t = t + diag_time
             diagnose_mode = True
@@ -349,13 +354,17 @@ def run(traj_vars, t_step=0.01, speed=1):
         desired_state = traj_func(t, speed, traj_vars)
 
         # Get new control inputs
-        [thrust, roll, pitch, yaw] = \
+        [thrust_newtons, roll, pitch, yaw] = \
                 position_controller(structure, desired_state, dt)
 
         des_pos  = np.array(desired_state[0])
         is_pos   = structure.state_vector[:3]
         residual = des_pos - is_pos
+
         #suspects = find_suspects(residual)
+
+        # Convert thrust to PWM range
+        thrust = thrust_newtons #convert_thrust_newtons_to_pwm(thrust_newtons)
 
         update_logs(t, structure.state_vector, desired_state, thrust, roll, pitch, yaw)
  
@@ -371,13 +380,16 @@ def run(traj_vars, t_step=0.01, speed=1):
             rospy.loginfo("     Des={}, Is={}".format(
                                             np.array(desired_state[0]), 
                                             np.array(structure.state_vector[:3])))
-            rospy.loginfo("     Fp={}".format( thrust ))
+            rospy.loginfo("     Fn={}, Fp={}".format( thrust_newtons, thrust ))
             rospy.loginfo("")
+            #if (np.sum(np.array(np.abs(structure.state_vector[:3]))) < 0.5):
+            #    print("Position is not valid, showing close to origin")
+            #    break
 
         # Send control message
         [ p.publish(msg) for p in publishers ]
 
-        #fault_injected = check_to_inject_fault(t, fault_injected, structure)
+        fault_injected = check_to_inject_fault(t, fault_injected, structure)
 
         # Based on residual, get a suspect list
         # if fault_injected and (not fault_detected) and (not suspects_initd):
@@ -504,6 +516,7 @@ def make_plots():
 def _takeoff(pose_mgr, structure, freq, publishers):
     global start_id
 
+    rospy.loginfo("LANDING")
     rate = rospy.Rate(freq)
 
     # Publish to robot
@@ -655,16 +668,16 @@ if __name__ == '__main__':
     results = test_shape_with_waypts(
                        num_struc, 
                        #waypt_gen.zigzag_xy(2.0, 1.0, 6, start_pt=[x-1,y-0.5,0.5]),
-                       waypt_gen.helix(radius=1.0, 
-                                       rise=1.0, 
-                                       num_circ=4, 
-                                       start_pt=[x, y, 0.0]),
-                       #waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
-                       #                     [x+0.0  , y+0.00  , 0.1],
-                       #                     [x+0.0  , y+0.00  , 0.2],
-                       #                     [x+0.0  , y+0.00  , 0.6]
-                       #                     #[x+1  , y    , 0.5]
-                       #                    ]),
+                       #waypt_gen.helix(radius=0.4, 
+                       #                rise=0.5, 
+                       #                num_circ=4, 
+                       #                start_pt=[x, y, 0.0]),
+                       waypt_gen.waypt_set([[x+0.0  , y+0.00  , 0.0],
+                                            [x+0.0  , y+0.00  , 0.1],
+                                            [x+0.0  , y+0.00  , 0.2],
+                                            [x+0.0  , y+0.00  , 0.6]
+                                            #[x+1  , y    , 0.5]
+                                           ]),
                        #waypt_gen.waypt_set([[x    , y    , 0.0],
                        #                     [x    , y    , 0.1],
                        #                     [x    , y    , 0.3],
@@ -684,6 +697,6 @@ if __name__ == '__main__':
                        #                     [x    , y    , 0.2]
                        #                    ]
                        #                   ),
-                       speed=0.2, test_id="controls", 
+                       speed=0.25, test_id="controls", 
                        doreform=True, max_fault=1, rand_fault=False)
     print("---------------------------------------------------------------")
