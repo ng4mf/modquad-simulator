@@ -140,10 +140,11 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     # TF publisher
     tf_broadcaster = tf2_ros.TransformBroadcaster()
 
-    freq = 100  # 100hz
+    freq = 500  # 100hz
     rate = rospy.Rate(freq)
-    t = 0
-    ind = 0.0
+
+    t = 0.0
+    ind = 0
 
     tlog = []
     desired_cmd_log = []
@@ -152,6 +153,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     sim_takeoff(structure, freq, odom_publishers, tf_broadcaster)
 
     thrust_newtons, roll, pitch, yaw = 0.0, 0.0, 0.0, 0.0
+    en_motor_sat = True
 
     while not rospy.is_shutdown() and t < overtime*tmax + 1.0 / freq:
 
@@ -161,17 +163,17 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         desired_state = trajectory_function(t, speed, structure.traj_vars)
 
         # Compute control inputs
-        [thrust_pwm, roll, pitch, yawrate] = \
-                position_controller(structure, desired_state, 1.0 / freq)
+        if ind % 5 == 0:
+            [thrust_pwm, roll, pitch, yawrate] = \
+                    position_controller(structure, desired_state, 1.0 / freq)
+            thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
+
         yaw_des = 0 # Currently unchangeable for trajectories we run
-        thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
 
         # Control output based on crazyflie input
         F_single, M_single = cf2_attitude_controller( structure, 
                     (thrust_newtons, roll, pitch, yawrate), 
                     yaw_des)
-
-        en_motor_sat = True
 
         # Control of Moments and thrust
         F_structure, M_structure, rotor_forces = \
@@ -179,15 +181,11 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 					structure, en_motor_sat)
 
         # Simulate, obtain new state and state derivative
-        new_state_vector = simulation_step( structure, 
+        structure.state_vector = simulation_step( structure, 
                                             structure.state_vector, 
 		                                    F_structure, 
                                             M_structure, 
                                             1.0 / freq             )
-
-        # Compute velocities manually
-        structure.state_vector = new_state_vector #\
-            #recompute_velocities(new_state_vector, structure.state_vector, 1.0 / freq)
 
         # Store data
         pos_err_log += np.power(desired_state[0] - structure.state_vector[:3], 2)
@@ -196,11 +194,12 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         desired_cmd_log.append([thrust_newtons, roll, pitch, yawrate])
         M_log.append(M_structure)
         forces_log.append(rotor_forces)
-        ind += 1.0
 
-        # Sleep so that we can maintain a 100 Hz update rate
+        ind += 1
+        t += 1.0 / freq
+
+        # Sleep so that we can maintain a 500 Hz update rate
         rate.sleep()
-        t += 1. / freq
 
     sim_land(structure, freq, odom_publishers, tf_broadcaster)
 

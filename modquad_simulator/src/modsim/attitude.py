@@ -11,7 +11,7 @@ persist_yaw_des = 0.0 # Used in cf2_attitude_controller(...)
 
 # TODO: Need to update for sim to 100 Hz?
 # Used in cf2_attitude_controller(...)
-ATTITUDE_UPDATE_DT = 1.0 / 500.0 # 1/500th of a second, i.e. 500 Hz update rate
+ATTITUDE_UPDATE_DT = 1.0 / 100.0 #1.0 / 500.0 # 1/500th of a second, i.e. 500 Hz update rate
 
 class AttGains:
     """
@@ -19,21 +19,21 @@ class AttGains:
     GAINS IN FIRMWARE ARE ON UNITS OF [deg] AND [deg/s] !!!
     """
     #                        KP     KD    KI  I_LIM
-    roll       = Gainset(   6.0,   3.0, 0.00,  20.0 )
-    roll_rate  = Gainset( 250.0, 500.0, 0.00,  33.3 )
-    pitch      = Gainset(   6.0,   3.0, 0.00,  20.0 )
-    pitch_rate = Gainset( 250.0, 500.0, 0.00,  33.3 )
-    yaw        = Gainset(   6.0,   1.0, 0.00, 360.0 )
-    yaw_rate   = Gainset( 120.0,  16.7, 0.00, 166.7 )
+    #roll       = Gainset(   6.0,   3.0, 0.00,  20.0 )
+    #roll_rate  = Gainset( 250.0, 500.0, 0.00,  33.3 )
+    #pitch      = Gainset(   6.0,   3.0, 0.00,  20.0 )
+    #pitch_rate = Gainset( 250.0, 500.0, 0.00,  33.3 )
+    #yaw        = Gainset(   6.0,   1.0, 0.00, 360.0 )
+    #yaw_rate   = Gainset( 120.0,  16.7, 0.00, 166.7 )
 
     # The below values are defaults encoded in firmware
     # #                        KP     KD    KI  I_LIM
-    # roll       = Gainset(   6.0,   3.0, 0.00,  20.0 )
-    # roll_rate  = Gainset( 250.0, 500.0, 2.50,  33.3 )
-    # pitch      = Gainset(   6.0,   3.0, 0.00,  20.0 )
-    # pitch_rate = Gainset( 250.0, 500.0, 2.50,  33.3 )
-    # yaw        = Gainset(   6.0,   1.0, 0.35, 360.0 )
-    # yaw_rate   = Gainset( 120.0,  16.7, 0.00, 166.7 )
+    roll       = Gainset(   6.0,   3.0, 0.00,  20.0 )
+    roll_rate  = Gainset( 250.0, 500.0, 2.50,  33.3 )
+    pitch      = Gainset(   6.0,   3.0, 0.00,  20.0 )
+    pitch_rate = Gainset( 250.0, 500.0, 2.50,  33.3 )
+    yaw        = Gainset(   6.0,   1.0, 0.35, 360.0 )
+    yaw_rate   = Gainset( 120.0,  16.7, 0.00, 166.7 )
 
 # Inits gains based on firmware values (but no I gains)
 att_gains = AttGains() # Used in cf2_attitude_controller(...)
@@ -156,6 +156,8 @@ def cf2_attitude_controller(structure, control_in, yaw_des):
     update_accum_att_err     (structure, np.array(att_err ))
     update_accum_att_rate_err(structure, np.array(rate_err))
 
+    #import pdb; pdb.set_trace()
+
     # Compute the moments
     Mx = att_gains.pitch.p.k * att_err[0] + \
          att_gains.pitch.d.k * (0 - quad_state.omega[0]) + \
@@ -168,6 +170,8 @@ def cf2_attitude_controller(structure, control_in, yaw_des):
     Mz = att_gains.yaw.p.k   * att_err[2] + \
          att_gains.yaw.d.k   * (0 - quad_state.omega[2]) + \
          att_gains.yaw.i.k   * structure.att_accumulated_error[2]
+
+    #import pdb; pdb.set_trace()
 
     # F_newtons is unchanged from the input control_in
     return F_newtons, [Mx, My, 0]
@@ -187,7 +191,7 @@ def attitude_controller(structure, control_in, yaw_des):
     """
     Attitude controller for crazyflie, receiving pwm as input.
     the output are forces and moments. F_newtons in Newtons
-    This is NOT the same as the firmware controller (see next function for that)
+    This is NOT the same as the firmware controller (see prev function for that)
     :type control_in: tuple defined as (F_newtons, roll_des, pitch_des, yawdot_des)
     :param x:
     :return:
@@ -219,10 +223,13 @@ def attitude_controller(structure, control_in, yaw_des):
     structure.att_accumulated_error += e
     #print(accumulated_error[0])
 
-    Mx = kpx * e[0] + kdx * (0 - quad_state.omega[0]) + kix * structure.att_accumulated_error[0]
-    My = kpx * e[1] + kdx * (0 - quad_state.omega[1]) + kix * structure.att_accumulated_error[1]
+    Mx = kpx * e[0] + \
+         kdx * (0 - quad_state.omega[0]) + \
+         kix * structure.att_accumulated_error[0]
+    My = kpx * e[1] + \
+         kdx * (0 - quad_state.omega[1]) + \
+         kix * structure.att_accumulated_error[1]
     #print(F_newtons, Mx, My)
     #print('---')
     return F_newtons, [Mx, My, 0]
 #------------------------------------------------------------------------------
-
