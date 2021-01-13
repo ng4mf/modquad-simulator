@@ -6,7 +6,7 @@ Noetic on Lubuntu 20. Not the master branch, but the modulardynamics
 branch is where it works at the moment.
 
 ### Requirements
-* Install crazyflie_ros: https://github.com/whoenig/crazyflie_ros
+* Install modified version of crazyflie_ros: https://github.com/ng4mf/crazyflie_ros (original: https://github.com/whoenig/crazyflie_ros)
 * install python packages `$ sudo pip install --upgrade numpy scipy transforms3d`
 
 ### Launching the simulator
@@ -46,6 +46,13 @@ circle.
 One pre-configured demo is a 3x3 square structure flying in a helix:
 ```
 rosrun demo-simulator helix_3x3structure.py
+```
+
+### Demo with Real Robots and Vicon - 2x2 Square hovering or helix trajectory (see bottom of rosrun script to choose)
+```zsh
+roslaunch mocap_vicon test_launch.vicon
+roslaunch crazyflie_demo multi4_2x2_vicon.launch
+rosrun modquad_simulator real_2x2_hover_vicon.py
 ```
 
 #### Demo for Reconfiguration
