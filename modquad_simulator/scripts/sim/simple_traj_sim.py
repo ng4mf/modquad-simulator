@@ -165,7 +165,7 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
         # Compute control inputs
         if ind % 5 == 0:
             [thrust_pwm, roll, pitch, yawrate] = \
-                    position_controller(structure, desired_state, 1.0 / freq)
+                    position_controller(structure, desired_state, 5.0 / freq)
             thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
 
         yaw_des = 0 # Currently unchangeable for trajectories we run
@@ -286,42 +286,42 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
 
     # roll
     ax2 = plt.subplot(4,2,figind+1)
-    ax2.set_ylabel(r"$\phi$ (deg)", size=ylabelsize)
-    ax2.plot(tlog, atts[:, 0], color='r', linewidth=lw)
-    ax2.plot(tlog, desired_cmd_log[:, 1], color='g', linewidth=lw)
-    ax2.set_ylim(-10, 10)
-    ax2.grid()
+    ax3 = ax2.twinx()
+    ax3.set_ylabel(r"$\phi$ (deg)", size=ylabelsize)
+    ax3.plot(tlog, atts[:, 0], color='r', linewidth=lw)
+    ax3.plot(tlog, desired_cmd_log[:, 1], color='g', linewidth=lw)
+    ax3.set_ylim(-10, 10)
+    ax3.grid()
 
     # Mx - moment about x axis, i.e., for pitch because of CF frame
-    ax3 = ax2.twinx()
-    ax3.plot(tlog, M_log[:, 0], 'c')
-    ax3.set_ylabel(r"$M_x$ (N.m) cyan")
+    ax2.plot(tlog, M_log[:, 0], 'c')
+    ax2.set_ylabel(r"$M_x$ (N.m) cyan")
 
     # pitch
     ax0 = plt.subplot(4,2,figind+3)
-    ax0.set_ylabel(r"$\theta$ (deg)", size=ylabelsize)
-    ax0.plot(tlog, atts[:, 1], color='r', linewidth=lw)
-    ax0.plot(tlog, desired_cmd_log[:, 2], color='g', linewidth=lw)
-    ax0.set_ylim(-10, 10)
-    ax0.grid()
+    ax1 = ax0.twinx()
+    ax1.set_ylabel(r"$\theta$ (deg)", size=ylabelsize)
+    ax1.plot(tlog, atts[:, 1], color='r', linewidth=lw)
+    ax1.plot(tlog, desired_cmd_log[:, 2], color='g', linewidth=lw)
+    ax1.set_ylim(-10, 10)
+    ax1.grid()
 
     # My - moment about y axis, i.e., for pitch
-    ax1 = ax0.twinx()
-    ax1.plot(tlog, M_log[:, 1], 'c')
-    ax1.set_ylabel(r"$M_y$ (N.m) cyan")
+    ax0.plot(tlog, M_log[:, 1], 'c')
+    ax0.set_ylabel(r"$M_y$ (N.m) cyan")
 
     # Yaw Rate
     ax4 = plt.subplot(4,2,figind+5)
-    ax4.set_xlabel("Time (sec)")
-    ax4.set_ylabel(r"$\dot{\psi}$ (deg/s)", size=ylabelsize)
-    ax4.plot(tlog, state_log[:, -1], color='r', linewidth=lw)
-    ax4.plot(tlog, desired_cmd_log[:, 3], color='g', linewidth=lw)
-    ax4.grid()
+    ax5 = ax4.twinx()
+    ax5.set_xlabel("Time (sec)")
+    ax5.set_ylabel(r"$\dot{\psi}$ (deg/s)", size=ylabelsize)
+    ax5.plot(tlog, state_log[:, -1], color='r', linewidth=lw)
+    ax5.plot(tlog, desired_cmd_log[:, 3], color='g', linewidth=lw)
+    ax5.grid()
 
     # Mz
-    ax5 = ax4.twinx()
-    ax5.plot(tlog, M_log[:, 2], 'c')
-    ax5.set_ylabel(r"$M_z (N.m)$ cyan")
+    ax4.plot(tlog, M_log[:, 2], 'c')
+    ax4.set_ylabel(r"$M_z (N.m)$ cyan")
 
     plt.show()
 
