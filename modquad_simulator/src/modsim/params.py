@@ -2,6 +2,9 @@ import rospy
 import numpy as np
 from math import pi
 
+# Rate params
+ATTITUDE_UPDATE_DT = 1 / 500.0 # @ 500 Hz
+
 # Crazyflie: physical parameters for the Crazyflie 2.0
 # Model assumptions based on physical measurements:
 # 

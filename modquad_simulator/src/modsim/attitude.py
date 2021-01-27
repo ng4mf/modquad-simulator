@@ -1,3 +1,4 @@
+import rospy
 import math
 
 from modsim.util.state import state_to_quadrotor
@@ -27,7 +28,7 @@ class AttGains:
     #yaw_rate   = Gainset( 120.0,  16.7, 0.00, 166.7 )
 
     # The below values are defaults encoded in firmware
-    # #                        KP     KD    KI  I_LIM
+    # #                      KP     KD    KI  I_LIM
     roll       = Gainset(   6.0,   3.0, 0.00,  20.0 )
     roll_rate  = Gainset( 250.0, 500.0, 2.50,  33.3 )
     pitch      = Gainset(   6.0,   3.0, 0.00,  20.0 )
@@ -78,103 +79,149 @@ def update_accum_att_rate_err(structure, rate_err):
             -att_gains.yaw_rate.i_lim
         )
 
-def cf2_attitude_controller(structure, control_in, yaw_des):
-    global en_att_i_gain, persist_yaw_des, att_gains
+def cf2_attitude_rate_controller(structure, control_in, des_att_rates):
     """
-    Attitude controller for CF2.x, receiving pwm as input.
-    This controller mimics the dual PID controller in the robot firmware.
-    The output are forces and moments. F_newtons in Newtons
-    :type control_in: tuple defined as (F_newtons, roll_des, pitch_des, yawdot_des)
-    :param x:
-    :return:
+    Innermost control loop of the CF2, as per 
+    https://www.bitcraze.io/documentation/repository/crazyflie-firmware/\
+        master/functional-areas/sensor-to-control/\
+        controllers/#overview-of-control
+
+    Runs at 500 Hz
+
+    In REAL system:
+    Input: Measured attitude rates from gyroscope and desired attitude rates
+    Output: Motor Commands
+
+    In Simulation:
+    Input: Measured attitude rates from simulation and desired attitude rates
+    Output: F_newtons, [Mx, My, Mz] - thrust in newtons, moments about body axes
     """
-    """
-    Sequence of events:
-    1) Get new state by state estimator
-    2) Get new setpoint (which is initialized to state from Step 1)
-    3) Update setpoint based on "current situation"
-        a) sitAwPostStateUpdateCallOut(sensorData, state); ] Relates to free 
-        b) sitAwPreThrustUpdateCallOut(setpoint);          ] fall detection, etc.
-    4) Call controller(...) function, of which below is a part of
-
-    MODES: mode.roll = mode.pitch = modeAbs, mode.yaw = modeVelocity
-        -> Thus, only yaw uses the PID_RATE variables 
-    
-    Once we have updated setpoint, the following occurs in controllerPid(...)
-    As per firmware, roll+pitch are in modeAbs and yaw is in modeVelocity
-    1) attitudeDesired.yaw += setpoint->attitudeRate.yaw * ATTITUDE_UPDATE_DT;
-    2) attitudeDesired.yaw = capAngle(attitudeDesired.yaw);
-    3) positionController(&actuatorThrust, &attitudeDesired, setpoint, state);
-    4) attitudeControllerCorrectAttitudePID(state->attitude.roll, state->attitude.pitch, state->attitude.yaw,
-                                            attitudeDesired.roll, attitudeDesired.pitch, attitudeDesired.yaw,
-                                            &rateDesired.roll, &rateDesired.pitch, &rateDesired.yaw);
-    5) attitudeControllerCorrectRatePID(sensors->gyro.x, -sensors->gyro.y, sensors->gyro.z,
-                             rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
-    6) attitudeControllerGetActuatorOutput(&control->roll, &control->pitch, &control->yaw);
-
-    The setpoint_t* is always set to be the last-measured-state, somewhat unintuitively
-
-    Seemingly, in the mode we use only the yawRate gains are used, not the pitchRate or rollRate ones
-        => Hence why below is simpler than the firmware
-    """
-
-    #global accumulated_error
-    x = structure.state_vector
-    F_newtons = control_in[0]
-    roll_des = control_in[1]
-    pitch_des = control_in[2]
+    F_newtons  = control_in[0]
+    roll_des   = control_in[1]
+    pitch_des  = control_in[2]
     yawdot_des = control_in[3]
+    
+    return F_newtons, [Mx, My, Mz]
 
-    # For why this is written, see src/modules/src/crtp_commander_rpyt.c Lines 192-231
-    pitch_rate_des = 0.0 # Because roll and pitch operate in modeAbs
-    roll_rate_des  = 0.0 # Because roll and pitch operate in modeAbs
-    yaw_rate_des   = yawdot_des # Because yaw operates in modeVelocity
+def cf2_attitude_controller(structure, control_in, des_attitude):
+    """
+    Second-to-innermost controller of CF2, as per
+    https://www.bitcraze.io/documentation/repository/crazyflie-firmware/\
+        master/functional-areas/sensor-to-control/\
+        controllers/#overview-of-control
 
-    persist_yaw_des += yaw_rate_des * ATTITUDE_UPDATE_DT
-    # Cap the angle
-    while persist_yaw_des > 180.0:
-        persist_yaw_des -= 360.0
-    while persist_yaw_des < -180.0:
-        persist_yaw_des += 360.0
+    Runs at 500 Hz
 
-    # Quaternion to angles (in radians, seems like)
-    quad_state = state_to_quadrotor(x)
+    In REAL system:
+    Input: Estimated attitude from state estimator and desired attitude
+    Output: Desired attitude rates
 
-    # Errors are stored in degrees
-    # math.degrees(...) needed because state_to_quadrotor(...) calls
-    #  transforms3d.quad2euler(quat), which converts to radians
-    att_err  = [roll_des        - math.degrees(quad_state.euler[0]),
-                pitch_des       - math.degrees(quad_state.euler[1]),
-                persist_yaw_des - math.degrees(quad_state.euler[2]) ]
+    In Simulation:
+    Input: Simulated attitude measurement, desired attitude
+    Output: [phi_dot, theta_dot, psi_dot], the desired attitude rates
+    """
 
-    # TODO: Verify omega is already in deg/s
-    rate_err = [roll_rate_des  - quad_state.omega[0],
-                pitch_rate_des - quad_state.omega[1],
-                yaw_rate_des   - quad_state.omega[2] ]
+    phi_dot, theta_dor, psi_dot = 0.0, 0.0, 0.0
 
-    # Update accumulated errors taking integral caps into account
-    update_accum_att_err     (structure, np.array(att_err ))
-    update_accum_att_rate_err(structure, np.array(rate_err))
+    return [phi_dot, theta_dor, psi_dot]
 
-    #import pdb; pdb.set_trace()
-
-    # Compute the moments
-    Mx = att_gains.pitch.p.k * att_err[0] + \
-         att_gains.pitch.d.k * (0 - quad_state.omega[0]) + \
-         att_gains.pitch.i.k * structure.att_accumulated_error[0]
-
-    My = att_gains.roll.p.k  * att_err[1] + \
-         att_gains.roll.d.k  * (0 - quad_state.omega[1]) + \
-         att_gains.roll.i.k  * structure.att_accumulated_error[1]
-
-    Mz = att_gains.yaw.p.k   * att_err[2] + \
-         att_gains.yaw.d.k   * (0 - quad_state.omega[2]) + \
-         att_gains.yaw.i.k   * structure.att_accumulated_error[2]
-
-    #import pdb; pdb.set_trace()
-
-    # F_newtons is unchanged from the input control_in
-    return F_newtons, [Mx, My, 0]
+# def cf2_attitude_controller_old(structure, control_in, yaw_des):
+#     global en_att_i_gain, persist_yaw_des, att_gains
+#     """
+#     Attitude controller for CF2.x, receiving pwm as input.
+#     This controller mimics the dual PID controller in the robot firmware.
+#     The output are forces and moments. F_newtons in Newtons
+#     :type control_in: tuple defined as (F_newtons, roll_des, pitch_des, yawdot_des)
+#     :param x:
+#     :return:
+#     """
+#     """
+#     Sequence of events:
+#     1) Get new state by state estimator
+#     2) Get new setpoint (which is initialized to state from Step 1)
+#     3) Update setpoint based on "current situation"
+#         a) sitAwPostStateUpdateCallOut(sensorData, state); ] Relates to free 
+#         b) sitAwPreThrustUpdateCallOut(setpoint);          ] fall detection, etc.
+#     4) Call controller(...) function, of which below is a part of
+# 
+#     MODES: mode.roll = mode.pitch = modeAbs, mode.yaw = modeVelocity
+#         -> Thus, only yaw uses the PID_RATE variables 
+#     
+#     Once we have updated setpoint, the following occurs in controllerPid(...)
+#     As per firmware, roll+pitch are in modeAbs and yaw is in modeVelocity
+#     1) attitudeDesired.yaw += setpoint->attitudeRate.yaw * ATTITUDE_UPDATE_DT;
+#     2) attitudeDesired.yaw = capAngle(attitudeDesired.yaw);
+#     3) positionController(&actuatorThrust, &attitudeDesired, setpoint, state);
+#     4) attitudeControllerCorrectAttitudePID(state->attitude.roll, state->attitude.pitch, state->attitude.yaw,
+#                                             attitudeDesired.roll, attitudeDesired.pitch, attitudeDesired.yaw,
+#                                             &rateDesired.roll, &rateDesired.pitch, &rateDesired.yaw);
+#     5) attitudeControllerCorrectRatePID(sensors->gyro.x, -sensors->gyro.y, sensors->gyro.z,
+#                              rateDesired.roll, rateDesired.pitch, rateDesired.yaw);
+#     6) attitudeControllerGetActuatorOutput(&control->roll, &control->pitch, &control->yaw);
+# 
+#     The setpoint_t* is always set to be the last-measured-state, somewhat unintuitively
+# 
+#     Seemingly, in the mode we use only the yawRate gains are used, not the pitchRate or rollRate ones
+#         => Hence why below is simpler than the firmware
+#     """
+#     x = structure.state_vector
+#     F_newtons  = control_in[0]
+#     roll_des   = control_in[1]
+#     pitch_des  = control_in[2]
+#     yawdot_des = control_in[3]
+# 
+#     # For why this is written, see src/modules/src/crtp_commander_rpyt.c Lines 192-231
+#     pitch_rate_des = 0.0 # Because roll and pitch operate in modeAbs
+#     roll_rate_des  = 0.0 # Because roll and pitch operate in modeAbs
+#     yaw_rate_des   = yawdot_des # Because yaw operates in modeVelocity
+# 
+#     persist_yaw_des += yaw_rate_des * ATTITUDE_UPDATE_DT
+#     # Cap the angle
+#     while persist_yaw_des > 180.0:
+#         persist_yaw_des -= 360.0
+#     while persist_yaw_des < -180.0:
+#         persist_yaw_des += 360.0
+# 
+#     # Quaternion to angles (in radians, seems like)
+#     quad_state = state_to_quadrotor(x)
+# 
+#     # Errors are stored in degrees
+#     # math.degrees(...) needed because state_to_quadrotor(...) calls
+#     #  transforms3d.quad2euler(quat), which converts to radians
+#     att_err  = [roll_des        - math.degrees(quad_state.euler[0]),
+#                 pitch_des       - math.degrees(quad_state.euler[1]),
+#                 persist_yaw_des - math.degrees(quad_state.euler[2]) ]
+# 
+#     # TODO: Verify omega is already in deg/s
+#     rate_err = [roll_rate_des  - quad_state.omega[0],
+#                 pitch_rate_des - quad_state.omega[1],
+#                 yaw_rate_des   - quad_state.omega[2] ]
+# 
+#     # Update accumulated errors taking integral caps into account
+#     update_accum_att_err     (structure, np.array(att_err ))
+#     update_accum_att_rate_err(structure, np.array(rate_err))
+# 
+#     # The PID on the yaw rate comes into play, 
+#     # but not the ones on roll, pitch rates
+# 
+# 
+#     # Compute the moments
+#     Mx = (att_gains.pitch.p.k * att_err[0] +  
+#           att_gains.pitch.d.k * rate_err[0] +   #(0 - quad_state.omega[0]) + \
+#           att_gains.pitch.i.k * structure.att_accumulated_error[0] )
+# 
+#     My = (att_gains.roll.p.k  * att_err[1] +  
+#           att_gains.roll.d.k  * rate_err[1] + #(0 - quad_state.omega[1]) +  
+#           att_gains.roll.i.k  * structure.att_accumulated_error[1] )
+# 
+#     Mz = (att_gains.yaw.p.k   * att_err[2] +  
+#           att_gains.yaw.d.k   * rate_err[2] + #(0 - quad_state.omega[2]) +  
+#           att_gains.yaw.i.k   * structure.att_accumulated_error[2] )
+# 
+#     #rospy.loginfo("Moments = [{:.3f},{:.3f},{:.3f}]".format(Mx, My, Mz))
+# 
+#     # F_newtons is unchanged from the input control_in
+#     return F_newtons, [Mx, My, Mz]
 
 #------------------------------------------------------------------------------
 

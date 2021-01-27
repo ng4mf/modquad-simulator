@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 import numpy as np
 import time
@@ -117,9 +117,9 @@ def run():
         # Send control message
         [ p.publish(msg) for p in publishers ]
 
-	if ( t % 5.0 < 0.05 ):
-		roll -= 3
-		rospy.loginfo("[{}] New pitch: {}".format(round(t, 2), pitch))
+        if ( t % 5.0 < 0.05 ):
+            roll -= 3
+            rospy.loginfo("[{}] New roll: {}".format(round(t, 2), roll))
 
         # The sleep preserves sending rate
         rate.sleep()

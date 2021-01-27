@@ -7,3 +7,6 @@ src/modsim/util/code
 src/modsim/util/fault_detection.py
 *swp
 *swo
+fdd_toggle_results/
+fdd_toggle_figs/
+prof_results/

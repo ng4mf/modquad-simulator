@@ -15,6 +15,7 @@ import json
 from tf.transformations import euler_from_quaternion
 import math
 
+from modsim.cf2_firmware_controller import ControlSetpoint, cf2_firmware_controller
 from modsim.controller import position_controller, modquad_torque_control
 from modsim.trajectory import circular_trajectory, simple_waypt_trajectory, \
     min_snap_trajectory
@@ -155,25 +156,49 @@ def simulate(structure, trajectory_function, sched_mset, speed=1, figind=1):
     thrust_newtons, roll, pitch, yaw = 0.0, 0.0, 0.0, 0.0
     en_motor_sat = True
 
+    ctrl_setpt = ControlSetpoint()
+
     while not rospy.is_shutdown() and t < overtime*tmax + 1.0 / freq:
 
+        # 1) Get some measurements and desired position
         # Publish odometry
         publish_structure_odometry(structure, odom_publishers, tf_broadcaster)
 
         desired_state = trajectory_function(t, speed, structure.traj_vars)
 
-        # Compute control inputs
-        if ind % 5 == 0:
+        # Now we have the new "sensor data" and next desired position
+        # 2) Firmware does state estimation
+        #    We skip this because simulation measurement is 'perfect'
+
+        # 3) firmware gets next setpoint, which equates to output of
+        #    position_controller
+        if ind % 5 == 0: # Get at 100 Hz instead of 500 Hz loop runs at
             [thrust_pwm, roll, pitch, yawrate] = \
                     position_controller(structure, desired_state, 5.0 / freq)
             thrust_newtons = convert_thrust_pwm_to_newtons(thrust_pwm)
+            ctrl_setpt.roll = roll
+            ctrl_setpt.pitch = pitch
+            ctrl_setpt.yawdot = yawrate
+            ctrl_setpt.thrust = thrust_newtons
 
-        yaw_des = 0 # Currently unchangeable for trajectories we run
+        # 4) Firmware calls sitAwUpdateSetpoint
+        #    Skip because even in firmware this isn't currently doing anything 
 
-        # Control output based on crazyflie input
-        F_single, M_single = attitude_controller( structure, 
-                    (thrust_newtons, roll, pitch, yawrate), 
-                    yaw_des)
+        # 5) Firmware calls controller()
+        #    control is the step right before power distribution
+        #    Now, though, we don't have the F_single, M_single
+        control = cf2_firmware_controller(ctrl_setpt, structure, t, 500, 100)
+
+        
+
+        #F_single, M_single = cf2_firmware_controller(ctrl_setpoint, structure, t)
+
+        #yaw_des = 0 # Currently unchangeable for trajectories we run
+
+        ## Control output based on crazyflie input
+        #F_single, M_single = cf2_attitude_controller( structure, 
+        #            (thrust_newtons, roll, pitch, yawrate), 
+        #            yaw_des)
 
         # Control of Moments and thrust
         F_structure, M_structure, rotor_forces = \

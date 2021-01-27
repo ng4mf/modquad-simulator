@@ -180,11 +180,29 @@ def modquad_torque_control(F, M, structure,
     sign_rx = [1 if rx_i > 0 else -1 for rx_i in rx]
     sign_ry = [1 if ry_i > 0 else -1 for ry_i in ry]
 
+    # From Benoit Landry's "Planning and Control for Quadrotor 
+    #   Flight through Cluttered Environments" (2014)
+    # https://groups.csail.mit.edu/robotics-center/public_papers/Landry15.pdf
+    #   Table 4.1 on Page 39
+    km = 0.000018580 # N*m*s^2
+    kf = 0.005022000 # N*s^2
+    motor_const_dividend = km/kf
 
-    # m = 4 * n  # Number of rotors
-    A = [[0.25, sy * .25 / L, -sx * .25 / L] for sx, sy in zip(sign_rx, sign_ry)]
+    M[2] = 0 # Artificially remove Z moment TODO: NOT THIS
 
-    rotor_forces = np.dot(A, [F, M[0], M[1]])  # Not using moment about Z-axis for limits
+    # Multiply by 0.25 because the force is per module otherwise,
+    # and there are four rotors per module: 1/4 = 0.25
+    A = 0.25 * np.array(
+                [   [ 1.0, 
+                      sy / L, 
+                     -sx / L,
+                      (- sx * sy) * motor_const_dividend / L # TODO: is "/L" needed?
+                    ] 
+                  for sx, sy in zip(sign_rx, sign_ry)
+                ])
+
+    #rotor_forces = np.dot(A, [F, M[0], M[1]])  # Not using moment about Z-axis for limits
+    rotor_forces = np.dot(A, [F, M[0], M[1], M[2]])  # Now using Z-axis moment
 
     # Motor saturation
     if motor_sat:
@@ -206,8 +224,11 @@ def modquad_torque_control(F, M, structure,
     F  =  np.sum(rotor_forces)
     Mx =  np.dot(ry, rotor_forces)
     My = -np.dot(rx, rotor_forces)
+
     # TODO Mz
-    Mz = M[2]
+    rot_const_vec = np.array([-sx * sy * motor_const_dividend for sx, sy in zip(sign_rx, sign_ry)])
+    Mz = np.dot(rot_const_vec, rotor_forces)
+    #Mz = M[2]
 
     #print(structure.ids)
     #print(F)
